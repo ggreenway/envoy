@@ -22,10 +22,6 @@
 
 namespace Envoy {
 namespace Server {
-
-class Instance; // TODO(mattklein123): Remove post 1.4.0. Forward declare to avoid circular
-                // includes.
-
 namespace Configuration {
 
 /**
@@ -101,12 +97,6 @@ public:
   virtual Envoy::Runtime::Loader& runtime() PURE;
 
   /**
-   * DEPRECATED: Do not call this function. It will be removed post 1.4.0 and is needed for other
-   * deprecated functionality.
-   */
-  virtual Instance& server() PURE;
-
-  /**
    * @return Stats::Scope& the filter's stats scope.
    */
   virtual Stats::Scope& scope() PURE;
@@ -127,8 +117,6 @@ public:
    */
   virtual Server::Admin& admin() PURE;
 };
-
-enum class NetworkFilterType { Read, Write, Both };
 
 /**
  * This function is used to wrap the creation of a network filter chain for new connections as
@@ -184,14 +172,7 @@ public:
    * produced by the factory.
    */
   virtual std::string name() PURE;
-
-  /**
-   * @return NetworkFilterType the type of filter.
-   */
-  virtual NetworkFilterType type() PURE;
 };
-
-enum class HttpFilterType { Decoder, Encoder, Both };
 
 /**
  * This function is used to wrap the creation of an HTTP filter chain for new streams as they
@@ -253,11 +234,6 @@ public:
    * produced by the factory.
    */
   virtual std::string name() PURE;
-
-  /**
-   * @return HttpFilterType the type of filter.
-   */
-  virtual HttpFilterType type() PURE;
 };
 
 } // namespace Configuration

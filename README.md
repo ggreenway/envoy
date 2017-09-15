@@ -4,19 +4,20 @@ C++ L7 proxy and communication bus
 
 ## Documentation
 
-* [Offical documentation](https://lyft.github.io/envoy).
+* [Offical documentation](https://envoyproxy.github.io).
 * Watch [a video overview of Envoy](https://www.youtube.com/watch?v=RVZX4CwKhGE)
 ([transcript](https://www.microservices.com/talks/lyfts-envoy-monolith-service-mesh-matt-klein/))
 to find out more about the origin story and design philosophy of Envoy.
 * [Blog](https://medium.com/@mattklein123/envoy-threading-model-a8d44b922310) about the threading model.
 * [Blog](https://medium.com/@mattklein123/envoy-hot-restart-1d16b14555b5) about hot restart.
 * [Blog](https://medium.com/@mattklein123/envoy-stats-b65c7f363342) about stats architecture.
+* [Blog](https://medium.com/@mattklein123/the-universal-data-plane-api-d15cec7a) about universal data plane API.
 
 ## Related
 
-* [envoy-api](https://github.com/lyft/envoy-api): v2 API definitions.
-* [envoy-perf](https://github.com/lyft/envoy-perf): Performance testing framework.
-* [envoy-filter-example](https://github.com/lyft/envoy-filter-example): Example of how to add new filters
+* [data-plane-api](https://github.com/envoyproxy/data-plane-api): v2 API definitions.
+* [envoy-perf](https://github.com/envoyproxy/envoy-perf): Performance testing framework.
+* [envoy-filter-example](https://github.com/envoyproxy/envoy-filter-example): Example of how to add new filters
   and link to the main repository.
 
 ## Contact

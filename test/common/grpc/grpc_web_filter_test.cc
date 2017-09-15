@@ -95,28 +95,28 @@ TEST_F(GrpcWebFilterTest, SupportedContentTypes) {
 }
 
 TEST_F(GrpcWebFilterTest, UnsupportedContentType) {
+  Buffer::OwnedImpl data;
   Http::TestHeaderMapImpl request_headers;
   request_headers.addCopy(Http::Headers::get().ContentType, "unsupported");
-  EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
-      .WillOnce(Invoke([](Http::HeaderMap& headers, bool) {
-        uint64_t code;
-        StringUtil::atoul(headers.Status()->value().c_str(), code);
-        EXPECT_EQ(static_cast<uint64_t>(Http::Code::UnsupportedMediaType), code);
-      }));
-  EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
-            filter_.decodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_.decodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_.decodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_.decodeTrailers(request_headers));
+
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_.encodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_.encodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_.encodeTrailers(request_headers));
 }
 
 TEST_F(GrpcWebFilterTest, NoContentType) {
+  Buffer::OwnedImpl data;
   Http::TestHeaderMapImpl request_headers;
-  EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
-      .WillOnce(Invoke([](Http::HeaderMap& headers, bool) {
-        uint64_t code;
-        StringUtil::atoul(headers.Status()->value().c_str(), code);
-        EXPECT_EQ(static_cast<uint64_t>(Http::Code::UnsupportedMediaType), code);
-      }));
-  EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
-            filter_.decodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_.decodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_.decodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_.decodeTrailers(request_headers));
+
+  EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_.encodeHeaders(request_headers, false));
+  EXPECT_EQ(Http::FilterDataStatus::Continue, filter_.encodeData(data, false));
+  EXPECT_EQ(Http::FilterTrailersStatus::Continue, filter_.encodeTrailers(request_headers));
 }
 
 TEST_F(GrpcWebFilterTest, InvalidBase64) {
@@ -287,9 +287,8 @@ TEST_P(GrpcWebFilterTest, Unary) {
 
   // Tests response trailers.
   Buffer::OwnedImpl trailers_buffer;
-  EXPECT_CALL(encoder_callbacks_, addEncodedData(_)).WillOnce(Invoke([&](Buffer::Instance& data) {
-    trailers_buffer.move(data);
-  }));
+  EXPECT_CALL(encoder_callbacks_, addEncodedData(_, true))
+      .WillOnce(Invoke([&](Buffer::Instance& data, bool) { trailers_buffer.move(data); }));
   Http::TestHeaderMapImpl response_trailers;
   response_trailers.addCopy(Http::Headers::get().GrpcStatus, "0");
   response_trailers.addCopy(Http::Headers::get().GrpcMessage, "ok");

@@ -7,7 +7,7 @@
 #include "common/json/config_schemas.h"
 #include "common/tracing/http_tracer_impl.h"
 
-#include "spdlog/spdlog.h"
+#include "fmt/format.h"
 
 namespace Envoy {
 namespace RateLimit {

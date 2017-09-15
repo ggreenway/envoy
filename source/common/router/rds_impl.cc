@@ -12,6 +12,8 @@
 #include "common/router/config_impl.h"
 #include "common/router/rds_subscription.h"
 
+#include "fmt/format.h"
+
 namespace Envoy {
 namespace Router {
 
@@ -197,11 +199,12 @@ void RouteConfigProviderManagerImpl::addRouteInfo(const RdsRouteConfigProvider& 
                                                   Buffer::Instance& response) {
   // TODO(junr03): change this to proto with JSON transcoding when #1522 is done.
   response.add("{\n");
+  response.add(fmt::format("    \"version_info\": \"{}\",\n", provider.versionInfo()));
   response.add(fmt::format("    \"route_config_name\": \"{}\",\n", provider.routeConfigName()));
   response.add(fmt::format("    \"cluster_name\": \"{}\",\n", provider.clusterName()));
   response.add("    \"route_table_dump\": ");
   response.add(fmt::format("{}\n", provider.configAsJson()));
-  response.add("}");
+  response.add("}\n");
 }
 
 Http::Code RouteConfigProviderManagerImpl::handlerRoutes(const std::string& url,

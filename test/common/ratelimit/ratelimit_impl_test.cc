@@ -14,7 +14,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-namespace Envoy {
 using testing::AtLeast;
 using testing::Invoke;
 using testing::Ref;
@@ -22,6 +21,7 @@ using testing::Return;
 using testing::WithArg;
 using testing::_;
 
+namespace Envoy {
 namespace RateLimit {
 
 class MockRequestCallbacks : public RequestCallbacks {
@@ -128,31 +128,21 @@ TEST_F(RateLimitGrpcClientTest, Cancel) {
 }
 
 TEST(RateLimitGrpcFactoryTest, NoCluster) {
-  std::string json = R"EOF(
-  {
-    "cluster_name": "foo"
-  }
-  )EOF";
-
-  Json::ObjectSharedPtr config = Json::Factory::loadFromString(json);
+  envoy::api::v2::RateLimitServiceConfig config;
+  config.set_cluster_name("foo");
   Upstream::MockClusterManager cm;
 
   EXPECT_CALL(cm, get("foo")).WillOnce(Return(nullptr));
-  EXPECT_THROW(GrpcFactoryImpl(*config, cm), EnvoyException);
+  EXPECT_THROW(GrpcFactoryImpl(config, cm), EnvoyException);
 }
 
 TEST(RateLimitGrpcFactoryTest, Create) {
-  std::string json = R"EOF(
-  {
-    "cluster_name": "foo"
-  }
-  )EOF";
-
-  Json::ObjectSharedPtr config = Json::Factory::loadFromString(json);
+  envoy::api::v2::RateLimitServiceConfig config;
+  config.set_cluster_name("foo");
   Upstream::MockClusterManager cm;
 
   EXPECT_CALL(cm, get("foo")).Times(AtLeast(1));
-  GrpcFactoryImpl factory(*config, cm);
+  GrpcFactoryImpl factory(config, cm);
   factory.create(Optional<std::chrono::milliseconds>());
 }
 

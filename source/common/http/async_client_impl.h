@@ -180,9 +180,7 @@ private:
   bool complete() { return local_closed_ && remote_closed_; }
 
   // Http::StreamDecoderFilterCallbacks
-  uint64_t connectionId() override { return 0; }
   const Network::Connection* connection() override { return nullptr; }
-  Ssl::Connection* ssl() override { return nullptr; }
   Event::Dispatcher& dispatcher() override { return parent_.dispatcher_; }
   void resetStream() override;
   Router::RouteConstSharedPtr route() override { return route_; }
@@ -192,7 +190,7 @@ private:
   Tracing::Span& activeSpan() override { return active_span_; }
   const std::string& downstreamAddress() override { return EMPTY_STRING; }
   void continueDecoding() override { NOT_IMPLEMENTED; }
-  void addDecodedData(Buffer::Instance&) override { NOT_IMPLEMENTED; }
+  void addDecodedData(Buffer::Instance&, bool) override { NOT_IMPLEMENTED; }
   const Buffer::Instance* decodingBuffer() override {
     throw EnvoyException("buffering is not supported in streaming");
   }
@@ -203,6 +201,8 @@ private:
   void onDecoderFilterBelowWriteBufferLowWatermark() override {}
   void addDownstreamWatermarkCallbacks(DownstreamWatermarkCallbacks&) override {}
   void removeDownstreamWatermarkCallbacks(DownstreamWatermarkCallbacks&) override {}
+  void setDecoderBufferLimit(uint32_t) override {}
+  uint32_t decoderBufferLimit() override { return 0; }
 
   AsyncClient::StreamCallbacks& stream_callbacks_;
   const uint64_t stream_id_;

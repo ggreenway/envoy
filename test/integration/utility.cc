@@ -16,12 +16,13 @@
 #include "common/network/utility.h"
 #include "common/upstream/upstream_impl.h"
 
+#include "test/common/upstream/utility.h"
 #include "test/mocks/upstream/mocks.h"
 #include "test/test_common/network_utility.h"
 #include "test/test_common/printers.h"
 #include "test/test_common/utility.h"
 
-#include "spdlog/spdlog.h"
+#include "fmt/format.h"
 
 namespace Envoy {
 void BufferingStreamDecoder::decodeHeaders(Http::HeaderMapPtr&& headers, bool end_stream) {
@@ -58,11 +59,8 @@ IntegrationUtil::makeSingleRequest(uint32_t port, const std::string& method, con
   Api::Impl api(std::chrono::milliseconds(9000));
   Event::DispatcherPtr dispatcher(api.allocateDispatcher());
   std::shared_ptr<Upstream::MockClusterInfo> cluster{new NiceMock<Upstream::MockClusterInfo>()};
-  Upstream::HostDescriptionConstSharedPtr host_description{new Upstream::HostDescriptionImpl(
-      cluster, "",
-      Network::Utility::resolveUrl(
-          fmt::format("tcp://{}:80", Network::Test::getLoopbackAddressUrlString(version))),
-      false, "")};
+  Upstream::HostDescriptionConstSharedPtr host_description{Upstream::makeTestHostDescription(
+      cluster, fmt::format("tcp://{}:80", Network::Test::getLoopbackAddressUrlString(version)))};
   Http::CodecClientProd client(
       type,
       dispatcher->createClientConnection(

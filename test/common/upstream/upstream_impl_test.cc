@@ -125,7 +125,7 @@ TEST_P(StrictDnsParamTest, ImmediateResolve) {
         cb(TestUtility::makeDnsResponse(std::get<2>(GetParam())));
         return nullptr;
       }));
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StrictDnsClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager,
                                dns_resolver, cm, dispatcher, false);
   cluster.setInitializedCb([&]() -> void { initialized.ready(); });
@@ -166,13 +166,15 @@ TEST(StrictDnsClusterImplTest, Basic) {
       }
     },
     "max_requests_per_connection": 3,
-    "http_codec_options": "no_compression",
+    "http2_settings": {
+       "hpack_table_size": 0
+     },
     "hosts": [{"url": "tcp://localhost1:11001"},
               {"url": "tcp://localhost2:11002"}]
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StrictDnsClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager,
                                dns_resolver, cm, dispatcher, false);
   EXPECT_EQ(43U, cluster.info()->resourceManager(ResourcePriority::Default).connections().max());
@@ -256,46 +258,37 @@ TEST(StrictDnsClusterImplTest, Basic) {
 
 TEST(HostImplTest, HostCluster) {
   MockCluster cluster;
-  HostImpl host(cluster.info_, "", Network::Utility::resolveUrl("tcp://10.0.0.1:1234"), false, 1,
-                "");
-  EXPECT_EQ(cluster.info_.get(), &host.cluster());
-  EXPECT_EQ("", host.hostname());
-  EXPECT_FALSE(host.canary());
-  EXPECT_EQ("", host.zone());
+  HostSharedPtr host = makeTestHost(cluster.info_, "tcp://10.0.0.1:1234", 1);
+  EXPECT_EQ(cluster.info_.get(), &host->cluster());
+  EXPECT_EQ("", host->hostname());
+  EXPECT_FALSE(host->canary());
+  EXPECT_EQ("", host->zone());
 }
 
 TEST(HostImplTest, Weight) {
   MockCluster cluster;
 
-  {
-    HostImpl host(cluster.info_, "", Network::Utility::resolveUrl("tcp://10.0.0.1:1234"), false, 0,
-                  "");
-    EXPECT_EQ(1U, host.weight());
-  }
+  EXPECT_EQ(1U, makeTestHost(cluster.info_, "tcp://10.0.0.1:1234", 0)->weight());
+  EXPECT_EQ(100U, makeTestHost(cluster.info_, "tcp://10.0.0.1:1234", 101)->weight());
 
-  {
-    HostImpl host(cluster.info_, "", Network::Utility::resolveUrl("tcp://10.0.0.1:1234"), false,
-                  101, "");
-    EXPECT_EQ(100U, host.weight());
-  }
-
-  {
-    HostImpl host(cluster.info_, "", Network::Utility::resolveUrl("tcp://10.0.0.1:1234"), false, 50,
-                  "");
-    EXPECT_EQ(50U, host.weight());
-    host.weight(51);
-    EXPECT_EQ(51U, host.weight());
-    host.weight(0);
-    EXPECT_EQ(1U, host.weight());
-    host.weight(101);
-    EXPECT_EQ(100U, host.weight());
-  }
+  HostSharedPtr host = makeTestHost(cluster.info_, "tcp://10.0.0.1:1234", 50);
+  EXPECT_EQ(50U, host->weight());
+  host->weight(51);
+  EXPECT_EQ(51U, host->weight());
+  host->weight(0);
+  EXPECT_EQ(1U, host->weight());
+  host->weight(101);
+  EXPECT_EQ(100U, host->weight());
 }
 
 TEST(HostImplTest, HostameCanaryAndZone) {
   MockCluster cluster;
+  envoy::api::v2::Metadata metadata;
+  Config::Metadata::mutableMetadataValue(metadata, Config::MetadataFilters::get().ENVOY_LB,
+                                         Config::MetadataEnvoyLbKeys::get().CANARY)
+      .set_bool_value(true);
   HostImpl host(cluster.info_, "lyft.com", Network::Utility::resolveUrl("tcp://10.0.0.1:1234"),
-                true, 1, "hello");
+                metadata, 1, "hello");
   EXPECT_EQ(cluster.info_.get(), &host.cluster());
   EXPECT_EQ("lyft.com", host.hostname());
   EXPECT_TRUE(host.canary());
@@ -316,7 +309,7 @@ TEST(StaticClusterImplTest, EmptyHostname) {
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StaticClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager, cm,
                             false);
   EXPECT_EQ(1UL, cluster.healthyHosts().size());
@@ -338,7 +331,7 @@ TEST(StaticClusterImplTest, RingHash) {
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StaticClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager, cm,
                             true);
   EXPECT_EQ(1UL, cluster.healthyHosts().size());
@@ -361,7 +354,7 @@ TEST(StaticClusterImplTest, OutlierDetector) {
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StaticClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager, cm,
                             false);
 
@@ -403,15 +396,15 @@ TEST(StaticClusterImplTest, HealthyStat) {
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StaticClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager, cm,
                             false);
 
   Outlier::MockDetector* outlier_detector = new NiceMock<Outlier::MockDetector>();
   cluster.setOutlierDetector(Outlier::DetectorSharedPtr{outlier_detector});
 
-  MockHealthChecker* health_checker = new NiceMock<MockHealthChecker>();
-  cluster.setHealthChecker(HealthCheckerPtr{health_checker});
+  std::shared_ptr<MockHealthChecker> health_checker(new NiceMock<MockHealthChecker>());
+  cluster.setHealthChecker(health_checker);
 
   EXPECT_EQ(2UL, cluster.healthyHosts().size());
   EXPECT_EQ(2UL, cluster.info()->stats().membership_healthy_.value());
@@ -462,7 +455,7 @@ TEST(StaticClusterImplTest, UrlConfig) {
   }
   )EOF";
 
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   StaticClusterImpl cluster(parseClusterFromJson(json), runtime, stats, ssl_context_manager, cm,
                             false);
   EXPECT_EQ(1024U, cluster.info()->resourceManager(ResourcePriority::Default).connections().max());
@@ -483,13 +476,14 @@ TEST(StaticClusterImplTest, UrlConfig) {
   EXPECT_EQ(2UL, cluster.healthyHosts().size());
   EXPECT_EQ(0UL, cluster.hostsPerZone().size());
   EXPECT_EQ(0UL, cluster.healthyHostsPerZone().size());
+  cluster.hosts()[0]->healthChecker().setUnhealthy();
 }
 
 TEST(StaticClusterImplTest, UnsupportedLBType) {
   Stats::IsolatedStoreImpl stats;
   Ssl::MockContextManager ssl_context_manager;
   NiceMock<Runtime::MockLoader> runtime;
-  MockClusterManager cm;
+  NiceMock<MockClusterManager> cm;
   const std::string json = R"EOF(
   {
     "name": "addressportconfig",
@@ -536,6 +530,42 @@ TEST(ClusterDefinitionTest, BadDnsClusterConfig) {
 
   Json::ObjectSharedPtr loader = Json::Factory::loadFromString(json);
   EXPECT_THROW(loader->validateSchema(Json::Schema::CLUSTER_SCHEMA), Json::Exception);
+}
+
+TEST(StaticClusterImplTest, SourceAddressPriority) {
+  Stats::IsolatedStoreImpl stats;
+  Ssl::MockContextManager ssl_context_manager;
+  NiceMock<Runtime::MockLoader> runtime;
+  envoy::api::v2::Cluster config;
+  config.set_name("staticcluster");
+  config.mutable_connect_timeout();
+
+  Network::Address::InstanceConstSharedPtr bootstrap_address =
+      Network::Utility::parseInternetAddress("1.2.3.5");
+  {
+    // If the cluster manager gets a source address from the bootstrap proto, use it.
+    NiceMock<MockClusterManager> cm;
+    cm.source_address_ = bootstrap_address;
+    StaticClusterImpl cluster(config, runtime, stats, ssl_context_manager, cm, false);
+    EXPECT_EQ(bootstrap_address->asString(), cluster.info()->sourceAddress()->asString());
+  }
+
+  const std::string cluster_address = "5.6.7.8";
+  config.mutable_upstream_bind_config()->mutable_source_address()->set_address(cluster_address);
+  {
+    // Verify source address from cluster config is used when present.
+    NiceMock<MockClusterManager> cm;
+    StaticClusterImpl cluster(config, runtime, stats, ssl_context_manager, cm, false);
+    EXPECT_EQ(cluster_address, cluster.info()->sourceAddress()->ip()->addressAsString());
+  }
+
+  {
+    // The source address from cluster config takes precedence over one from the bootstrap proto.
+    NiceMock<MockClusterManager> cm;
+    cm.source_address_ = bootstrap_address;
+    StaticClusterImpl cluster(config, runtime, stats, ssl_context_manager, cm, false);
+    EXPECT_EQ(cluster_address, cluster.info()->sourceAddress()->ip()->addressAsString());
+  }
 }
 
 } // namespace

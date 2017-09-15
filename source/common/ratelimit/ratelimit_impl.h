@@ -14,6 +14,8 @@
 #include "common/json/json_loader.h"
 #include "common/ratelimit/ratelimit.pb.h"
 
+#include "api/bootstrap.pb.h"
+
 namespace Envoy {
 namespace RateLimit {
 
@@ -63,7 +65,8 @@ private:
 
 class GrpcFactoryImpl : public ClientFactory {
 public:
-  GrpcFactoryImpl(const Json::Object& config, Upstream::ClusterManager& cm);
+  GrpcFactoryImpl(const envoy::api::v2::RateLimitServiceConfig& config,
+                  Upstream::ClusterManager& cm);
 
   // RateLimit::ClientFactory
   ClientPtr create(const Optional<std::chrono::milliseconds>& timeout) override;
