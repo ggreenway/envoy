@@ -78,6 +78,7 @@ public:
 
   void close();
   void waitForData(const std::string& data, bool exact_match = true);
+  void waitForConnect();
   void waitForDisconnect(bool ignore_spurious_events = false);
   void waitForHalfClose();
   void readDisable(bool disabled);
@@ -100,6 +101,7 @@ private:
   std::shared_ptr<WaitForPayloadReader> payload_reader_;
   std::shared_ptr<ConnectionCallbacks> callbacks_;
   Network::ClientConnectionPtr connection_;
+  bool connected_{};
   bool disconnected_{};
   MockWatermarkBuffer* client_write_buffer_;
 };
@@ -122,8 +124,6 @@ public:
   BaseIntegrationTest(Network::Address::IpVersion version,
                       const std::string& config = ConfigHelper::HTTP_PROXY_CONFIG);
   virtual ~BaseIntegrationTest() {}
-
-  void SetUp();
 
   // Initialize the basic proto configuration, create fake upstreams, and start Envoy.
   virtual void initialize();
@@ -205,8 +205,6 @@ protected:
   bool enable_half_close_{false};
 
 private:
-  // The codec type for the client-to-Envoy connection
-  Http::CodecClient::Type downstream_protocol_{Http::CodecClient::Type::HTTP1};
   // The type for the Envoy-to-backend connection
   FakeHttpConnection::Type upstream_protocol_{FakeHttpConnection::Type::HTTP1};
   // True if initialized() has been called.

@@ -163,6 +163,11 @@ void IntegrationTcpClient::waitForData(const std::string& data, bool exact_match
   connection_->dispatcher().run(Event::Dispatcher::RunType::Block);
 }
 
+void IntegrationTcpClient::waitForConnect() {
+  connection_->dispatcher().run(Event::Dispatcher::RunType::Block);
+  EXPECT_TRUE(connected_);
+}
+
 void IntegrationTcpClient::waitForDisconnect(bool ignore_spurious_events) {
   if (ignore_spurious_events) {
     while (!disconnected_) {
@@ -204,7 +209,9 @@ void IntegrationTcpClient::write(const std::string& data, bool end_stream, bool 
 }
 
 void IntegrationTcpClient::ConnectionCallbacks::onEvent(Network::ConnectionEvent event) {
-  if (event == Network::ConnectionEvent::RemoteClose) {
+  if (event == Network::ConnectionEvent::Connected) {
+    parent_.connected_ = true;
+  } else if (event == Network::ConnectionEvent::RemoteClose) {
     parent_.disconnected_ = true;
     parent_.connection_->dispatcher().exit();
   }

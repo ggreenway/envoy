@@ -2,6 +2,7 @@
 
 #include "envoy/config/accesslog/v2/file.pb.h"
 #include "envoy/config/filter/network/tcp_proxy/v2/tcp_proxy.pb.validate.h"
+#include "envoy/server/transport_socket_config.h"
 
 #include "common/filesystem/filesystem_impl.h"
 #include "common/network/utility.h"
@@ -19,6 +20,58 @@ using testing::NiceMock;
 
 namespace Envoy {
 namespace {
+
+// Transport socket that immediately closes the connection upon first invocation of doWrite.
+class WriteFailSocket : public Network::RawBufferSocket {
+public:
+  // Network::TransportSocket
+  Network::IoResult doWrite(Buffer::Instance& buffer, bool end_stream) override {
+    UNREFERENCED_PARAMETER(buffer);
+    UNREFERENCED_PARAMETER(end_stream);
+    // Simulate SSL handshake error
+    return {Network::PostIoAction::Close, 0, false};
+  }
+};
+
+class WriteFailSocketFactory : public Network::TransportSocketFactory {
+public:
+  Network::TransportSocketPtr createTransportSocket() const override {
+    return std::make_unique<WriteFailSocket>();
+  }
+  bool implementsSecureTransport() const override { return false; }
+};
+
+class WriteFailSocketConfigFactory
+    : public Server::Configuration::UpstreamTransportSocketConfigFactory,
+      public Server::Configuration::DownstreamTransportSocketConfigFactory {
+public:
+  static constexpr const char* NAME = "WRITE_FAIL";
+  std::string name() const override { return NAME; }
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<ProtobufWkt::Empty>();
+  }
+  // Server::Configuration::UpstreamTransportSocketConfigFactory
+  Network::TransportSocketFactoryPtr
+  createTransportSocketFactory(const Protobuf::Message&,
+                               Server::Configuration::TransportSocketFactoryContext&) override {
+    return std::make_unique<WriteFailSocketFactory>();
+  }
+  // Server::Configuration::DownstreamTransportSocketConfigFactory
+  Network::TransportSocketFactoryPtr
+  createTransportSocketFactory(const Protobuf::Message&,
+                               Server::Configuration::TransportSocketFactoryContext&,
+                               const std::vector<std::string>&) override {
+    return std::make_unique<WriteFailSocketFactory>();
+  }
+};
+
+Registry::RegisterFactory<WriteFailSocketConfigFactory,
+                          Server::Configuration::UpstreamTransportSocketConfigFactory>
+    upstream_registered_;
+
+Registry::RegisterFactory<WriteFailSocketConfigFactory,
+                          Server::Configuration::DownstreamTransportSocketConfigFactory>
+    downstream_registered_;
 
 INSTANTIATE_TEST_CASE_P(IpVersions, TcpProxyIntegrationTest,
                         testing::ValuesIn(TestEnvironment::getIpVersionsForTest()),
@@ -353,6 +406,30 @@ TEST_P(TcpProxyIntegrationTest, TestIdletimeoutWithLargeOutstandingData) {
 
   tcp_client->waitForDisconnect(true);
   ASSERT_TRUE(fake_upstream_connection->waitForDisconnect(true));
+}
+
+TEST_P(TcpProxyIntegrationTest, TestDownstreamDisconnectWithUpstreamConnectionInProgress) {
+  config_helper_.addConfigModifier([&](envoy::config::bootstrap::v2::Bootstrap& bootstrap) -> void {
+    bootstrap.mutable_static_resources()
+        ->mutable_listeners(0)
+        ->mutable_filter_chains(0)
+        ->mutable_transport_socket()
+        ->set_name(WriteFailSocketConfigFactory::NAME);
+  });
+  initialize();
+
+  IntegrationTcpClientPtr tcp_client = makeTcpConnection(lookupPort("tcp_proxy"));
+  FakeRawConnectionPtr fake_upstream_connection;
+  AssertionResult result = fake_upstreams_[0]->waitForRawConnection(fake_upstream_connection);
+  RELEASE_ASSERT(result, result.message());
+
+  tcp_client->waitForConnect();
+  tcp_client->close();
+
+  test_server_->waitForGaugeEq("cluster.cluster_0.upstream_rq_pending_active", 0);
+
+  // Not sure what the clean shutdown path looks like after this, but the conn pool ought
+  // to handle being destroyed with ready connections.
 }
 
 INSTANTIATE_TEST_CASE_P(IpVersions, TcpProxySslIntegrationTest,
