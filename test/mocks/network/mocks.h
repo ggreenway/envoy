@@ -635,6 +635,22 @@ public:
   testing::NiceMock<MockConnection> connection_;
 };
 
+// The normal mock for this instaniates a chain of mock objects which eventually creates
+// the wrong time object, which asserts in tests that use real time.
+class TimelessMockTransportSocketCallbacks : public TransportSocketCallbacks {
+public:
+  TimelessMockTransportSocketCallbacks();
+  ~TimelessMockTransportSocketCallbacks() override;
+
+  MOCK_METHOD(IoHandle&, ioHandle, ());
+  MOCK_METHOD(const IoHandle&, ioHandle, (), (const));
+  MOCK_METHOD(Connection&, connection, ());
+  MOCK_METHOD(bool, shouldDrainReadBuffer, ());
+  MOCK_METHOD(void, setTransportSocketIsReadable, ());
+  MOCK_METHOD(void, raiseEvent, (ConnectionEvent));
+  MOCK_METHOD(void, flushWriteBuffer, ());
+};
+
 class MockUdpPacketWriter : public UdpPacketWriter {
 public:
   MockUdpPacketWriter();

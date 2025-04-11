@@ -98,5 +98,6 @@ envoy_cc_test_library(
     ],
     deps = [
         "//source/common/tls/cert_validator:cert_validator_lib",
+        "//test/mocks/network:network_mocks",
     ],
 )

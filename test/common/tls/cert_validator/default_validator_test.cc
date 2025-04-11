@@ -572,10 +572,12 @@ TEST(DefaultCertValidatorTest, TestCertificateVerificationWithNoValidationContex
   SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
   bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
   ASSERT_TRUE(bssl::PushToStack(cert_chain.get(), std::move(cert)));
+  Network::TimelessMockTransportSocketCallbacks callbacks;
   EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
             default_validator
                 ->doVerifyCertChain(*cert_chain, /*callback=*/nullptr,
-                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {callbacks},
+                                    false, "")
                 .status);
 }
 
@@ -591,9 +593,10 @@ TEST(DefaultCertValidatorTest, TestCertificateVerificationWithEmptyCertChain) {
   SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
   bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
   TestSslExtendedSocketInfo extended_socket_info;
+  Network::TimelessMockTransportSocketCallbacks callbacks;
   ValidationResults results = default_validator->doVerifyCertChain(
       *cert_chain, /*callback=*/nullptr,
-      /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+      /*transport_socket_options=*/nullptr, *ssl_ctx, {callbacks}, false, "");
   EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
   EXPECT_EQ(Ssl::ClientValidationStatus::NoClientCertificate, results.detailed_status);
 }

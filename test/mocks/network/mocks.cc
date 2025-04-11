@@ -213,6 +213,9 @@ MockTransportSocketCallbacks::MockTransportSocketCallbacks() {
 }
 MockTransportSocketCallbacks::~MockTransportSocketCallbacks() = default;
 
+TimelessMockTransportSocketCallbacks::TimelessMockTransportSocketCallbacks() = default;
+TimelessMockTransportSocketCallbacks::~TimelessMockTransportSocketCallbacks() = default;
+
 MockUdpPacketWriter::MockUdpPacketWriter() = default;
 MockUdpPacketWriter::~MockUdpPacketWriter() = default;
 

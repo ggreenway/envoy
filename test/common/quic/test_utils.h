@@ -14,6 +14,7 @@
 #include "source/common/stats/isolated_store_impl.h"
 
 #include "test/common/config/dummy_config.pb.h"
+#include "test/mocks/network/mocks.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/utility.h"
 
@@ -320,12 +321,20 @@ std::string testParamsToString(
 
 class MockProofVerifyContext : public EnvoyQuicProofVerifyContext {
 public:
+  MockProofVerifyContext() {
+    ON_CALL(*this, extraValidationContext())
+        .WillByDefault(testing::Return(
+            Extensions::TransportSockets::Tls::CertValidator::ExtraValidationContext{callbacks_}));
+  }
+
   MOCK_METHOD(Event::Dispatcher&, dispatcher, (), (const));
   MOCK_METHOD(bool, isServer, (), (const));
   MOCK_METHOD(const Network::TransportSocketOptionsConstSharedPtr&, transportSocketOptions, (),
               (const));
   MOCK_METHOD(Extensions::TransportSockets::Tls::CertValidator::ExtraValidationContext,
               extraValidationContext, (), (const));
+
+  Network::TimelessMockTransportSocketCallbacks callbacks_;
 };
 
 class MockQuicConnectionDebugVisitor : public quic::QuicConnectionDebugVisitor {

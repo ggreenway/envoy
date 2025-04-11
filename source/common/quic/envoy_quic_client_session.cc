@@ -59,7 +59,7 @@ public:
   Extensions::TransportSockets::Tls::CertValidator::ExtraValidationContext
   extraValidationContext() const override {
     ASSERT(ssl_info_.ssl());
-    return {validation_context_.get()};
+    return {*validation_context_};
   }
 
 private:

@@ -1,4 +1,5 @@
 #include "test/common/tls/cert_validator/timed_cert_validator.h"
+#include "test/mocks/network/mocks.h"
 
 #include <openssl/safestack.h>
 
@@ -23,15 +24,13 @@ ValidationResults TimedCertValidator::doVerifyCertChain(
     EXPECT_EQ(expected_host_name_.value(), host_name);
   }
   if (expected_local_address_.has_value()) {
-    ASSERT(validation_context.callbacks != nullptr);
-    EXPECT_EQ(expected_local_address_.value(), validation_context.callbacks->connection()
+    EXPECT_EQ(expected_local_address_.value(), validation_context.callbacks.connection()
                                                    .connectionInfoProvider()
                                                    .localAddress()
                                                    ->asString());
   }
   if (expected_peer_address_.has_value()) {
-    ASSERT(validation_context.callbacks != nullptr);
-    EXPECT_EQ(expected_peer_address_.value(), validation_context.callbacks->connection()
+    EXPECT_EQ(expected_peer_address_.value(), validation_context.callbacks.connection()
                                                   .connectionInfoProvider()
                                                   .remoteAddress()
                                                   ->asString());
@@ -56,8 +55,9 @@ ValidationResults TimedCertValidator::doVerifyCertChain(
             PANIC("boring SSL object allocation failed.");
           }
         }
+        Network::TimelessMockTransportSocketCallbacks callbacks;
         ValidationResults result = DefaultCertValidator::doVerifyCertChain(
-            *certs, nullptr, transport_socket_options, ssl_ctx, {}, is_server, host);
+            *certs, nullptr, transport_socket_options, ssl_ctx, {callbacks}, is_server, host);
         callback_->onCertValidationResult(
             result.status == ValidationResults::ValidationStatus::Successful,
             result.detailed_status,

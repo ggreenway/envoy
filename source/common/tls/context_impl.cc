@@ -473,9 +473,8 @@ ValidationResults ContextImpl::customVerifyCertChain(
   ASSERT(cert_validator_);
   const char* host_name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 
-  CertValidator::ExtraValidationContext validation_ctx;
-  validation_ctx.callbacks =
-      static_cast<Network::TransportSocketCallbacks*>(SSL_get_ex_data(ssl, sslSocketIndex()));
+  CertValidator::ExtraValidationContext validation_ctx{
+      *static_cast<Network::TransportSocketCallbacks*>(SSL_get_ex_data(ssl, sslSocketIndex()))};
 
   ValidationResults result = cert_validator_->doVerifyCertChain(
       *cert_chain, extended_socket_info->createValidateResultCallback(), transport_socket_options,

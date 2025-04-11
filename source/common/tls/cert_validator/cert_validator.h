@@ -48,7 +48,7 @@ public:
   // Wraps cert validation parameters added from time to time.
   struct ExtraValidationContext {
     // The pointer to transport socket callbacks.
-    Network::TransportSocketCallbacks* callbacks;
+    Network::TransportSocketCallbacks& callbacks;
   };
 
   virtual ~CertValidator() = default;

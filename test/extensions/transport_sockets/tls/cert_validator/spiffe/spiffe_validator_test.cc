@@ -143,6 +143,8 @@ public:
 
   NiceMock<Server::Configuration::MockServerFactoryContext> factory_context_;
   NiceMock<Envoy::Event::MockDispatcher> dispatcher_;
+  Network::TimelessMockTransportSocketCallbacks callbacks_;
+  CertValidator::ExtraValidationContext extra_context_{callbacks_};
 
 private:
   bool allow_expired_certificate_{false};
@@ -292,9 +294,9 @@ TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainWithEmptyChain) {
   TestSslExtendedSocketInfo info;
   SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
   bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-  ValidationResults results =
-      validator().doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+  ValidationResults results = validator().doVerifyCertChain(
+      *cert_chain, info.createValidateResultCallback(),
+      /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
   EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
   EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::NotValidated, results.detailed_status);
   EXPECT_EQ(1, stats().fail_verify_error_.value());
@@ -309,9 +311,9 @@ TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainPrecheckFailure) {
   SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
   bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
   sk_X509_push(cert_chain.get(), cert.release());
-  ValidationResults results =
-      validator().doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+  ValidationResults results = validator().doVerifyCertChain(
+      *cert_chain, info.createValidateResultCallback(),
+      /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
   EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
   EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Failed, results.detailed_status);
   EXPECT_EQ(1, stats().fail_verify_error_.value());
@@ -340,7 +342,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -353,7 +356,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
   {
@@ -365,7 +369,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -399,7 +404,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -411,7 +417,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -425,7 +432,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -438,7 +446,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -470,7 +479,8 @@ typed_config:
   EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
             validator()
                 .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                   /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                   /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                   false, "")
                 .status);
 
   EXPECT_EQ(0, stats().fail_verify_error_.value());
@@ -505,7 +515,7 @@ typed_config:
     initialize(config);
     ValidationResults results = validator().doVerifyCertChain(
         *cert_chain, info.createValidateResultCallback(),
-        /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+        /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful, results.status);
     EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Validated, results.detailed_status);
   }
@@ -516,7 +526,7 @@ typed_config:
     initialize(config);
     ValidationResults results = validator().doVerifyCertChain(
         *cert_chain, info.createValidateResultCallback(),
-        /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+        /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
     EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Failed, results.detailed_status);
     EXPECT_EQ(1, stats().fail_verify_san_.value());
@@ -551,7 +561,8 @@ typed_config:
   EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
             validator()
                 .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                   /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                   /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                   false, "")
                 .status);
 }
 
@@ -881,7 +892,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -893,7 +905,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -907,7 +920,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -920,7 +934,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -949,7 +964,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -961,7 +977,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -975,7 +992,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -988,7 +1006,8 @@ typed_config:
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
               validator()
                   .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                     /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                     false, "")
                   .status);
   }
 
@@ -1021,7 +1040,8 @@ typed_config:
   EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
             validator()
                 .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                   /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
+                                   /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_,
+                                   false, "")
                 .status);
 }
 
@@ -1052,7 +1072,7 @@ typed_config:
     initialize(config, "trust_bundles.json");
     ValidationResults results = validator().doVerifyCertChain(
         *cert_chain, info.createValidateResultCallback(),
-        /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+        /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
     EXPECT_EQ(ValidationResults::ValidationStatus::Successful, results.status);
     EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Validated, results.detailed_status);
   }
@@ -1063,7 +1083,7 @@ typed_config:
     initialize(config, "trust_bundles.json");
     ValidationResults results = validator().doVerifyCertChain(
         *cert_chain, info.createValidateResultCallback(),
-        /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
+        /*transport_socket_options=*/nullptr, *ssl_ctx, extra_context_, false, "");
     EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
     EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Failed, results.detailed_status);
     EXPECT_EQ(1, stats().fail_verify_san_.value());
